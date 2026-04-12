@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NumberCraft — Number Base Converter, Bit Viewer & Calculator</title>
+<meta name="description" content="Free in-browser number tool. Convert between binary, octal, decimal, hex. View bit patterns, do bitwise operations, convert IEEE 754 floats. 100% client-side.">
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3250;
+    --accent: #6c63ff; --accent2: #a78bfa; --text: #e2e8f0; --muted: #8892b0;
+    --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+    --bin: #f59e0b; --oct: #10b981; --dec: #6c63ff; --hex: #ef4444;
+    --radius: 10px; --font: 'Segoe UI',system-ui,sans-serif; --mono: 'Fira Code','Cascadia Code','Consolas',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:.7rem 1.4rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
+  .logo{display:flex;align-items:center;gap:.6rem;text-decoration:none;color:var(--text);}
+  .logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#f59e0b,#6c63ff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
+  .logo-text{font-size:1.15rem;font-weight:700;} .logo-text span{color:var(--accent2);}
+  nav{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;}
+  nav a{color:var(--muted);text-decoration:none;font-size:.82rem;padding:.25rem .5rem;border-radius:5px;transition:color .2s,background .2s;}
+  nav a:hover{color:var(--text);background:var(--surface2);}
+  .pro-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;padding:.22rem .6rem;border-radius:20px;font-size:.72rem;font-weight:600;cursor:pointer;border:none;}
+  .hero{text-align:center;padding:1.6rem 1rem .9rem;}
+  .hero h1{font-size:clamp(1.4rem,3.5vw,2rem);font-weight:800;margin-bottom:.3rem;}
+  .hero h1 span{background:linear-gradient(135deg,#f59e0b,#6c63ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .hero p{color:var(--muted);font-size:.9rem;max-width:460px;margin:0 auto .8rem;}
+  .badges{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;}
+  .badge{background:var(--surface2);border:1px solid var(--border);padding:.18rem .55rem;border-radius:20px;font-size:.72rem;color:var(--muted);}
+  .container{max-width:1000px;margin:0 auto;padding:0 1rem 2rem;}
+  .tab-bar{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden;flex-wrap:wrap;}
+  .tab{padding:.6rem 1rem;font-size:.84rem;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;transition:color .2s,background .2s;white-space:nowrap;}
+  .tab:hover{color:var(--text);background:var(--surface2);}
+  .tab.active{color:var(--accent2);border-bottom:2px solid var(--accent);background:var(--surface2);}
+  .tab-content{border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--surface);}
+  .tab-pane{display:none;padding:1.2rem;}
+  .tab-pane.active{display:block;}
+
+  /* Base converter */
+  .base-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+  @media(max-width:540px){.base-grid{grid-template-columns:1fr;}}
+  .base-card{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:.9rem 1rem;transition:border-color .2s;}
+  .base-card:focus-within{border-color:var(--accent);}
+  .base-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between;}
+  .base-badge{padding:.15rem .5rem;border-radius:20px;font-size:.68rem;font-weight:700;}
+  .bb-bin{background:rgba(245,158,11,.15);color:var(--bin);}
+  .bb-oct{background:rgba(16,185,129,.15);color:var(--oct);}
+  .bb-dec{background:rgba(108,99,255,.15);color:var(--dec);}
+  .bb-hex{background:rgba(239,68,68,.15);color:var(--hex);}
+  .base-input{width:100%;background:var(--bg);border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:1.1rem;padding:.3rem 0;letter-spacing:.05em;}
+  .base-meta{font-size:.72rem;color:var(--muted);margin-top:.3rem;}
+  .copy-small{background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.1rem .4rem;font-size:.68rem;cursor:pointer;transition:all .2s;float:right;}
+  .copy-small:hover{border-color:var(--accent);color:var(--accent2);}
+
+  /* Bit viewer */
+  .bit-viewer{margin-top:1rem;}
+  .bit-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;}
+  .bit-row{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:.3rem;}
+  .bit-cell{width:28px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:5px;font-family:var(--mono);font-size:.85rem;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;user-select:none;}
+  .bit-cell.on{background:rgba(108,99,255,.35);color:var(--accent2);border:1px solid var(--accent);}
+  .bit-cell.off{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+  .bit-cell:hover{transform:scale(1.1);}
+  .bit-sep{width:4px;}
+  .bit-pos-row{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:.6rem;}
+  .bit-pos{width:28px;text-align:center;font-size:.6rem;color:var(--muted);}
+  .bit-pos.sep{width:4px;}
+  .bitwidth-btns{display:flex;gap:.4rem;margin-bottom:.6rem;}
+  .bw-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:.25rem .7rem;font-size:.78rem;cursor:pointer;transition:all .2s;}
+  .bw-btn.active{border-color:var(--accent);color:var(--accent2);}
+
+  /* Bitwise ops */
+  .bw-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:start;margin-bottom:.8rem;}
+  @media(max-width:500px){.bw-grid{grid-template-columns:1fr;}}
+  .bw-ops{display:flex;flex-direction:column;gap:.4rem;padding-top:.5rem;}
+  .bw-op-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.3rem .6rem;font-size:.78rem;cursor:pointer;font-family:var(--mono);transition:all .2s;white-space:nowrap;}
+  .bw-op-btn:hover{border-color:var(--accent);color:var(--accent2);}
+  .bw-op-btn.active{background:var(--accent);color:white;border-color:var(--accent);}
+  .bw-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:.88rem;padding:.5rem .75rem;outline:none;transition:border-color .2s;}
+  .bw-input:focus{border-color:var(--accent);}
+  .bw-result-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;}
+  .bw-result-row{display:flex;justify-content:space-between;align-items:center;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+  .bw-result-row:last-child{border-bottom:none;}
+  .bw-result-row .k{color:var(--muted);font-size:.75rem;}
+  .bw-result-row .v{font-family:var(--mono);color:var(--accent2);}
+
+  /* IEEE 754 */
+  .ieee-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1rem;}
+  @media(max-width:500px){.ieee-grid{grid-template-columns:1fr;}}
+  .ieee-input-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.8rem;}
+  .ieee-input-card label{display:block;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem;}
+  .ieee-input-card input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:.88rem;padding:.4rem .6rem;outline:none;transition:border-color .2s;}
+  .ieee-input-card input:focus{border-color:var(--accent);}
+  .ieee-breakdown{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-top:.6rem;}
+  .ieee-field{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:.8rem;}
+  .ieee-field .lbl{width:80px;color:var(--muted);font-size:.72rem;text-transform:uppercase;flex-shrink:0;}
+  .ieee-field .bits{font-family:var(--mono);font-size:.75rem;letter-spacing:.08em;background:var(--surface2);padding:.15rem .5rem;border-radius:4px;}
+  .ieee-field .val{color:var(--accent2);font-family:var(--mono);}
+  .sign-bit{color:#f87171;}
+  .exp-bit{color:#fbbf24;}
+  .mant-bit{color:#34d399;}
+
+  /* Footer */
+  .footer-links{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap;padding:1rem;border-top:1px solid var(--border);margin-top:1.5rem;}
+  .footer-links a{color:var(--muted);text-decoration:none;font-size:.75rem;transition:color .2s;}
+  .footer-links a:hover{color:var(--accent2);}
+  .footer-links a.current{color:var(--accent2);font-weight:600;}
+  .toast{position:fixed;bottom:1.2rem;right:1.2rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.5rem .9rem;font-size:.82rem;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.4);z-index:999;opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s;pointer-events:none;}
+  .toast.show{opacity:1;transform:none;}
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;}
+  .modal-bg.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.8rem;max-width:380px;width:90%;text-align:center;}
+  .modal h2 span{color:var(--accent2);}
+  .modal p{color:var(--muted);font-size:.88rem;margin:.4rem 0 1rem;}
+  .modal ul{text-align:left;list-style:none;padding:0;margin:0 0 1.2rem;display:flex;flex-direction:column;gap:.35rem;}
+  .modal ul li::before{content:'✓ ';color:var(--success);font-weight:700;}
+  .modal ul li{font-size:.83rem;color:var(--muted);}
+  .modal .cta{background:linear-gradient(135deg,#f59e0b,var(--accent2));color:white;border:none;border-radius:8px;padding:.7rem 1.4rem;font-size:.95rem;font-weight:700;cursor:pointer;width:100%;margin-bottom:.4rem;}
+  .modal .close-modal{background:none;border:none;color:var(--muted);font-size:.78rem;cursor:pointer;}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="#"><span class="logo-icon">🔢</span><span class="logo-text">Number<span>Craft</span></span></a>
+  <nav>
+    <a href="https://shiffasultan-collab.github.io/sqlcraft/" target="_blank">SQLCraft</a>
+    <a href="https://shiffasultan-collab.github.io/hashcraft/" target="_blank">HashCraft</a>
+    <a href="https://shiffasultan-collab.github.io/base64craft/" target="_blank">Base64Craft</a>
+    <a href="https://shiffasultan-collab.github.io/jsoncraft/" target="_blank">JSONCraft</a>
+    <a href="https://shiffasultan-collab.github.io/jwtcraft/" target="_blank">JWTCraft</a>
+    <button class="pro-badge" onclick="openModal()">✨ Pro — $4/mo</button>
+  </nav>
+</header>
+<div class="hero">
+  <h1>Number<span>Craft</span></h1>
+  <p>Convert between binary, octal, decimal and hex. Flip bits, run bitwise ops, decode IEEE 754 floats — all in your browser.</p>
+  <div class="badges">
+    <span class="badge">🔒 100% Client-Side</span>
+    <span class="badge">🔢 Base Converter</span>
+    <span class="badge">🧮 Bit Viewer</span>
+    <span class="badge">⚡ Bitwise Ops</span>
+    <span class="badge">📐 IEEE 754</span>
+  </div>
+</div>
+<div class="container">
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('converter')" id="tab-converter">🔢 Base Converter</button>
+    <button class="tab" onclick="switchTab('bitwise')" id="tab-bitwise">⚡ Bitwise Ops</button>
+    <button class="tab" onclick="switchTab('ieee')" id="tab-ieee">📐 IEEE 754</button>
+  </div>
+  <div class="tab-content">
+
+    <!-- Base Converter Tab -->
+    <div class="tab-pane active" id="pane-converter">
+      <div class="base-grid">
+        <div class="base-card">
+          <div class="base-label"><span style="color:var(--bin)">Binary</span><span class="base-badge bb-bin">Base 2</span></div>
+          <input class="base-input" id="binInput" placeholder="e.g. 1010 1111" oninput="fromBase(this,'bin')" spellcheck="false" autocomplete="off">
+          <div class="base-meta" id="binMeta"> </div>
+          <button class="copy-small" onclick="copyVal('binInput')">Copy</button>
+        </div>
+        <div class="base-card">
+          <div class="base-label"><span style="color:var(--oct)">Octal</span><span class="base-badge bb-oct">Base 8</span></div>
+          <input class="base-input" id="octInput" placeholder="e.g. 257" oninput="fromBase(this,'oct')" spellcheck="false" autocomplete="off">
+          <div class="base-meta" id="octMeta"> </div>
+          <button class="copy-small" onclick="copyVal('octInput')">Copy</button>
+        </div>
+        <div class="base-card" style="border-color:var(--accent)">
+          <div class="base-label"><span style="color:var(--dec)">Decimal</span><span class="base-badge bb-dec">Base 10</span></div>
+          <input class="base-input" id="decInput" placeholder="e.g. 255" oninput="fromBase(this,'dec')" spellcheck="false" autocomplete="off">
+          <div class="base-meta" id="decMeta"> </div>
+          <button class="copy-small" onclick="copyVal('decInput')">Copy</button>
+        </div>
+        <div class="base-card">
+          <div class="base-label"><span style="color:var(--hex)">Hexadecimal</span><span class="base-badge bb-hex">Base 16</span></div>
+          <input class="base-input" id="hexInput" placeholder="e.g. FF or 0xFF" oninput="fromBase(this,'hex')" spellcheck="false" autocomplete="off">
+          <div class="base-meta" id="hexMeta"> </div>
+          <button class="copy-small" onclick="copyVal('hexInput')">Copy</button>
+        </div>
+      </div>
+
+      <!-- Bit viewer -->
+      <div class="bit-viewer">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
+          <div class="bit-label">Bit Viewer — click bits to toggle</div>
+          <div class="bitwidth-btns">
+            <button class="bw-btn" onclick="setBitWidth(8)">8-bit</button>
+            <button class="bw-btn active" onclick="setBitWidth(16)">16-bit</button>
+            <button class="bw-btn" onclick="setBitWidth(32)">32-bit</button>
+            <button class="bw-btn" onclick="setBitWidth(64)">64-bit</button>
+          </div>
+        </div>
+        <div class="bit-pos-row" id="bitPosRow"></div>
+        <div class="bit-row" id="bitRow"></div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.4rem">MSB → LSB · <span style="color:var(--accent2)" id="bitSummary"></span></div>
+      </div>
+    </div>
+
+    <!-- Bitwise Ops Tab -->
+    <div class="tab-pane" id="pane-bitwise">
+      <div class="bw-grid">
+        <div>
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Operand A (decimal)</div>
+          <input class="bw-input" id="bwA" placeholder="e.g. 42" value="42" oninput="runBitwise()">
+          <div style="font-size:.72rem;color:var(--muted);margin-top:.25rem" id="bwABin"></div>
+        </div>
+        <div class="bw-ops">
+          <button class="bw-op-btn active" id="op-AND" onclick="setOp('AND')">AND (&amp;)</button>
+          <button class="bw-op-btn" id="op-OR" onclick="setOp('OR')">OR (|)</button>
+          <button class="bw-op-btn" id="op-XOR" onclick="setOp('XOR')">XOR (^)</button>
+          <button class="bw-op-btn" id="op-NOT" onclick="setOp('NOT')">NOT (~A)</button>
+          <button class="bw-op-btn" id="op-SHL" onclick="setOp('SHL')">SHL (&lt;&lt;)</button>
+          <button class="bw-op-btn" id="op-SHR" onclick="setOp('SHR')">SHR (&gt;&gt;)</button>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Operand B (decimal)</div>
+          <input class="bw-input" id="bwB" placeholder="e.g. 15" value="15" oninput="runBitwise()">
+          <div style="font-size:.72rem;color:var(--muted);margin-top:.25rem" id="bwBBin"></div>
+        </div>
+      </div>
+      <div class="bw-result-box" id="bwResult"></div>
+    </div>
+
+    <!-- IEEE 754 Tab -->
+    <div class="tab-pane" id="pane-ieee">
+      <div class="ieee-grid">
+        <div class="ieee-input-card">
+          <label>Decimal Float</label>
+          <input type="text" id="ieeeDecIn" placeholder="e.g. 3.14159" oninput="ieeeFromDec()" value="3.14159">
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">Enter any float (NaN, Infinity also work)</div>
+        </div>
+        <div class="ieee-input-card">
+          <label>Hex (32-bit)</label>
+          <input type="text" id="ieeeHexIn" placeholder="e.g. 40490FDB" oninput="ieeeFromHex()" style="text-transform:uppercase">
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">8 hex digits = 32-bit float</div>
+        </div>
+      </div>
+      <div class="ieee-breakdown" id="ieeeBreakdown">
+        <div style="color:var(--muted);font-size:.85rem;text-align:center;padding:.5rem">Enter a number above to see the IEEE 754 breakdown</div>
+      </div>
+      <div style="margin-top:.8rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem;font-size:.78rem;color:var(--muted);line-height:1.6">
+        <strong style="color:var(--text)">IEEE 754 Single (32-bit):</strong>
+        <span class="sign-bit">■ 1 sign bit</span> ·
+        <span class="exp-bit">■ 8 exponent bits</span> ·
+        <span class="mant-bit">■ 23 mantissa bits</span><br>
+        Formula: <code style="background:var(--bg);padding:.1em .3em;border-radius:3px;font-family:var(--mono)">(-1)^sign × 2^(exp-127) × 1.mantissa</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-links">
+    <a href="https://shiffasultan-collab.github.io/numbercraft/" class="current">🔢 NumberCraft</a>
+    <a href="https://shiffasultan-collab.github.io/sqlcraft/" target="_blank">🗄️ SQLCraft</a>
+    <a href="https://shiffasultan-collab.github.io/timecraft/" target="_blank">🕐 TimeCraft</a>
+    <a href="https://shiffasultan-collab.github.io/diffcraft/" target="_blank">⚡ DiffCraft</a>
+    <a href="https://shiffasultan-collab.github.io/base64craft/" target="_blank">🔐 Base64Craft</a>
+    <a href="https://shiffasultan-collab.github.io/hashcraft/" target="_blank"># HashCraft</a>
+    <a href="https://shiffasultan-collab.github.io/jwtcraft/" target="_blank">🔑 JWTCraft</a>
+    <a href="https://shiffasultan-collab.github.io/jsoncraft/" target="_blank">{ } JSONCraft</a>
+    <a href="https://shiffasultan-collab.github.io/urlcraft/" target="_blank">🔗 URLCraft</a>
+    <a href="https://shiffasultan-collab.github.io/regexpal/" target="_blank">🔍 RegexPal</a>
+    <a href="https://shiffasultan-collab.github.io/markdowncraft/" target="_blank">📝 MarkdownCraft</a>
+    <a href="https://shiffasultan-collab.github.io/csvcraft/" target="_blank">📊 CSVCraft</a>
+  </div>
+</div>
+
+<div class="modal-bg" id="proModal">
+  <div class="modal">
+    <h2>🔢 NumberCraft <span>Pro</span></h2>
+    <p>For low-level devs, embedded engineers and CS students.</p>
+    <ul>
+      <li>Custom base converter (base 2–36)</li>
+      <li>64-bit IEEE 754 double breakdown</li>
+      <li>Two's complement & sign-magnitude</li>
+      <li>BCD, Gray code, ASCII/Unicode conversion</li>
+      <li>Arithmetic in any base</li>
+    </ul>
+    <button class="cta" onclick="window.open('#gumroad','_blank')">Get Pro — $4/mo</button>
+    <button class="close-modal" onclick="closeModal()">No thanks</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────
+let currentVal = 0n; // BigInt
+let bitWidth = 16;
+let bitwiseOp = 'AND';
+
+// ── Utils ─────────────────────────────────────────────────────────────────
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show';setTimeout(()=>el.className='toast',2000);}
+function copyVal(id){const v=document.getElementById(id).value;navigator.clipboard.writeText(v).then(()=>toast('Copied ✓'));}
+function copyText(t){navigator.clipboard.writeText(t).then(()=>toast('Copied ✓'));}
+
+// ── Base Converter ────────────────────────────────────────────────────────
+function fromBase(el, base) {
+  const raw = el.value.trim().replace(/\s/g,'').replace(/^0[xXbBoO]/,'');
+  if (!raw) { clearAll(); return; }
+  try {
+    let val;
+    if (base==='bin') val = BigInt('0b'+raw);
+    else if (base==='oct') val = BigInt('0o'+raw);
+    else if (base==='dec') val = BigInt(raw);
+    else val = BigInt('0x'+raw);
+    if (val < 0n) { toast('Negative numbers: use decimal'); return; }
+    currentVal = val;
+    updateAll(base);
+  } catch(e) {
+    document.getElementById(base+'Meta').textContent = '⚠ Invalid '+base+' input';
+  }
+}
+
+function updateAll(skip) {
+  const v = currentVal;
+  const fields = {
+    bin: {el:'binInput', fn:()=>v.toString(2).replace(/(.{4})/g,'$1 ').trim(), meta:()=>v.toString(2).length+' bits'},
+    oct: {el:'octInput', fn:()=>v.toString(8), meta:()=>'Octal'},
+    dec: {el:'decInput', fn:()=>v.toString(10), meta:()=>Number(v).toLocaleString()},
+    hex: {el:'hexInput', fn:()=>v.toString(16).toUpperCase().replace(/(.{4})/g,'$1 ').trim(), meta:()=>Math.ceil(v.toString(16).length/2)+' bytes'}
+  };
+  for (const [k,{el,fn,meta}] of Object.entries(fields)) {
+    if (k!==skip) document.getElementById(el).value = fn();
+    document.getElementById(k+'Meta').textContent = meta();
+  }
+  renderBitViewer();
+}
+
+function clearAll() {
+  ['bin','oct','dec','hex'].forEach(b=>{document.getElementById(b+'Input').value='';document.getElementById(b+'Meta').textContent='';});
+  currentVal=0n; renderBitViewer();
+}
+
+// ── Bit Viewer ────────────────────────────────────────────────────────────
+function setBitWidth(n) {
+  bitWidth = n;
+  document.querySelectorAll('.bw-btn').forEach(b=>b.classList.toggle('active', b.textContent.includes(n+'-bit')));
+  renderBitViewer();
+}
+
+function renderBitViewer() {
+  const n = bitWidth;
+  const val = currentVal & ((1n<<BigInt(n))-1n);
+  const bits = val.toString(2).padStart(n,'0').split('');
+
+  // Position labels
+  const posRow = document.getElementById('bitPosRow');
+  let posHtml = '';
+  for (let i=n-1;i>=0;i--) {
+    if (i<n-1 && (i+1)%8===0) posHtml += '<div class="bit-pos sep"></div>';
+    posHtml += `<div class="bit-pos">${i}</div>`;
+  }
+  posRow.innerHTML = posHtml;
+
+  // Bits
+  const bitRow = document.getElementById('bitRow');
+  let html = '';
+  bits.forEach((b,i) => {
+    const pos = n-1-i;
+    if (i>0 && i%8===0) html += '<div class="bit-sep"></div>';
+    const isOn = b==='1';
+    html += `<div class="bit-cell ${isOn?'on':'off'}" onclick="toggleBit(${pos})" title="Bit ${pos} = ${b}">${b}</div>`;
+  });
+  bitRow.innerHTML = html;
+
+  const dec = Number(val);
+  document.getElementById('bitSummary').textContent = `0x${val.toString(16).toUpperCase().padStart(n/4,'0')} = ${dec.toLocaleString()} = 0b${val.toString(2).padStart(n,'0')}`;
+}
+
+function toggleBit(pos) {
+  currentVal ^= (1n << BigInt(pos));
+  currentVal &= ((1n<<BigInt(bitWidth))-1n);
+  updateAll('');
+}
+
+// ── Bitwise Ops ───────────────────────────────────────────────────────────
+function setOp(op) {
+  bitwiseOp = op;
+  document.querySelectorAll('.bw-op-btn').forEach(b=>b.classList.toggle('active', b.id==='op-'+op));
+  runBitwise();
+}
+
+function runBitwise() {
+  const aStr = document.getElementById('bwA').value.trim();
+  const bStr = document.getElementById('bwB').value.trim();
+  let a, b;
+  try { a = BigInt(aStr||'0'); } catch(e) { a=0n; }
+  try { b = BigInt(bStr||'0'); } catch(e) { b=0n; }
+  document.getElementById('bwABin').textContent = 'bin: ' + a.toString(2);
+  document.getElementById('bwBBin').textContent = 'bin: ' + b.toString(2);
+  let result;
+  try {
+    switch(bitwiseOp) {
+      case 'AND': result = a & b; break;
+      case 'OR':  result = a | b; break;
+      case 'XOR': result = a ^ b; break;
+      case 'NOT': result = ~a; break;
+      case 'SHL': result = a << (b < 0n ? 0n : b); break;
+      case 'SHR': result = a >> (b < 0n ? 0n : b); break;
+      default: result = 0n;
+    }
+  } catch(e) { result=0n; }
+  const el = document.getElementById('bwResult');
+  const rows = [
+    ['Operation', `${aStr||'0'} ${bitwiseOp==='NOT'?'~':''}${bitwiseOp} ${bitwiseOp==='NOT'||bitwiseOp==='SHL'||bitwiseOp==='SHR'?bStr:''}`.trim()],
+    ['Result (dec)', result.toString()],
+    ['Result (hex)', '0x' + (result < 0n ? '-'+(-result).toString(16).toUpperCase() : result.toString(16).toUpperCase())],
+    ['Result (bin)', result < 0n ? '-'+(-result).toString(2) : result.toString(2)],
+    ['A (bin)', a.toString(2).padStart(Math.max(8,a.toString(2).length),'0')],
+    ['B (bin)', b.toString(2).padStart(Math.max(8,b.toString(2).length),'0')],
+  ];
+  el.innerHTML = rows.map(([k,v])=>`<div class="bw-result-row"><span class="k">${k}</span><span class="v">${v}</span><button onclick="copyText('${v}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.1rem .4rem;font-size:.65rem;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">Copy</button></div>`).join('');
+}
+
+// ── IEEE 754 ──────────────────────────────────────────────────────────────
+function ieeeFromDec() {
+  const v = parseFloat(document.getElementById('ieeeDecIn').value);
+  if (isNaN(v) && document.getElementById('ieeeDecIn').value.toLowerCase()!=='nan') return;
+  const buf = new ArrayBuffer(4);
+  new Float32Array(buf)[0] = v;
+  const hex = Array.from(new Uint8Array(buf)).reverse().map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+  document.getElementById('ieeeHexIn').value = hex;
+  renderIeeeBreakdown(hex, v);
+}
+
+function ieeeFromHex() {
+  const h = document.getElementById('ieeeHexIn').value.trim().replace(/^0x/i,'');
+  if (h.length!==8) return;
+  const bytes = [];
+  for(let i=0;i<8;i+=2) bytes.push(parseInt(h.slice(i,i+2),16));
+  const buf = new ArrayBuffer(4);
+  new Uint8Array(buf).set(bytes.reverse());
+  const v = new Float32Array(buf)[0];
+  document.getElementById('ieeeDecIn').value = v;
+  renderIeeeBreakdown(h.toUpperCase(), v);
+}
+
+function renderIeeeBreakdown(hex, decimal) {
+  const bits = parseInt(hex,16).toString(2).padStart(32,'0');
+  const sign = bits[0];
+  const exp  = bits.slice(1,9);
+  const mant = bits.slice(9);
+  const expVal = parseInt(exp,2);
+  const expBias = expVal - 127;
+  const signVal = sign==='0' ? '+' : '-';
+  const el = document.getElementById('ieeeBreakdown');
+  const signBits = `<span class="sign-bit">${sign}</span>`;
+  const expBits  = `<span class="exp-bit">${exp}</span>`;
+  const mantBits = `<span class="mant-bit">${mant.match(/.{4}/g).join(' ')}</span>`;
+  el.innerHTML = `
+    <div style="font-family:var(--mono);font-size:.82rem;letter-spacing:.06em;margin-bottom:.8rem;word-break:break-all">
+      ${signBits} ${expBits} ${mantBits}
+    </div>
+    <div class="ieee-field"><span class="lbl">Sign</span><span class="bits sign-bit">${sign}</span><span class="val">${signVal}1</span></div>
+    <div class="ieee-field"><span class="lbl">Exponent</span><span class="bits exp-bit">${exp}</span><span class="val">${expVal} (biased) → 2^${expBias}</span></div>
+    <div class="ieee-field"><span class="lbl">Mantissa</span><span class="bits mant-bit">${mant}</span><span class="val">1.${mant}</span></div>
+    <div class="ieee-field"><span class="lbl">Hex</span><span class="bits">${hex}</span><button onclick="copyText('0x${hex}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.1rem .4rem;font-size:.65rem;cursor:pointer">Copy</button></div>
+    <div class="ieee-field"><span class="lbl">Decimal</span><span class="val" style="color:var(--accent2)">${decimal}</span><button onclick="copyText('${decimal}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.1rem .4rem;font-size:.65rem;cursor:pointer">Copy</button></div>
+    <div class="ieee-field"><span class="lbl">Full bits</span><span class="bits">${bits.match(/.{8}/g).join(' ')}</span></div>
+  `;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('pane-'+name).classList.add('active');
+  if(name==='bitwise') runBitwise();
+  if(name==='ieee') ieeeFromDec();
+}
+function openModal(){document.getElementById('proModal').classList.add('open');}
+function closeModal(){document.getElementById('proModal').classList.remove('open');}
+document.getElementById('proModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+// Init
+document.getElementById('decInput').value='255';
+fromBase(document.getElementById('decInput'),'dec');
+renderBitViewer();
+runBitwise();
+ieeeFromDec();
+</script>
+</body>
+</html>
