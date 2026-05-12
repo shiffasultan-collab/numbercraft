@@ -459,6 +459,7 @@ function renderIeeeBreakdown(hex, decimal) {
     <div class="ieee-field"><span class="lbl">Hex</span><span class="bits">${hex}</span><button onclick="copyText('0x${hex}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.1rem .4rem;font-size:.65rem;cursor:pointer">Copy</button></div>
     <div class="ieee-field"><span class="lbl">Decimal</span><span class="val" style="color:var(--accent2)">${decimal}</span><button onclick="copyText('${decimal}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.1rem .4rem;font-size:.65rem;cursor:pointer">Copy</button></div>
     <div class="ieee-field"><span class="lbl">Full bits</span><span class="bits">${bits.match(/.{8}/g).join(' ')}</span>  <a href="https://shiffasultan-collab.github.io/uuidcraft/">UUIDCraft</a>
+  <a href="https://shiffasultan-collab.github.io/typecraft/">TypeCraft</a>
 </div>
   `;
 }
